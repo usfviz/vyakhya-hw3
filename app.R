@@ -14,15 +14,15 @@ if('parcoords' %in% rownames(installed.packages()) == FALSE) {devtools::install_
 library(parcoords)
 
 fb <- read.csv('dataset_Facebook.csv', sep = ";",header=T)
-names(fb) <- c("Total.likes","Type","Category","Month","Weekday","Hour","Paid","Post.Reach","Post.Imp","Users","Consumers","Consumptions","Imp.by.people","reach.by.people","liked.and.engaged","comment","like","share","Interactions")
+colnames(fb) <- c("Total_likes","Type","Category","Post_Month","Post_Weekday","Post_Hour","Paid","Total_Reach","Total_Impressions","Users","Consumers","Consumptions","impressions","reach","liked_engaged","comment","like","share","interactions")
 
   ui <- fluidPage(
     titlePanel("Facebook Dataset - Visualizations"),
     sidebarLayout(
       sidebarPanel(
-        checkboxGroupInput("SelecetedVars", "Select four factors from below:",
-                           c("Page total likes" = "Total.likes",'Type' = "Type","Category" = "Category", "Post Month" = "Month", "Post Weekday" = "Weekday","Post Hour" = "Hour", "Paid" = "Paid", "Lifetime Post Total Reach" = "Post.Reach", "Lifetime Post Total Impressions" = "Post.Imp", "Lifetime Engaged Users" = "Users", "Lifetime Post Consumers" = "Consumers", "Lifetime Post Consumptions" = "Consumptions", "Lifetime Post Impressions by people who have liked your Page" = "Imp.by.people","Lifetime Post reach by people who like your Page" = "reach.by.people", "Lifetime People who have liked your Page and engaged with your post" = "liked.and.engaged", "Comment" = "comment", "Like" = "like", "Share" = "share", "Total Interactions" = "Interactions"), 
-                           selected = c("Post.Reach","Weekday","Hour","Paid"))
+        checkboxGroupInput("vars", "Select variables:",
+                           c("Total_likes", "Users", "Consumers", "Consumptions", "comment", "like", "share", "interactions"), 
+                           selected = c("like","comment","share","Users"))
       ),
       mainPanel(
         tabsetPanel(
@@ -34,27 +34,26 @@ names(fb) <- c("Total.likes","Type","Category","Month","Weekday","Hour","Paid","
           
           tabPanel("Scatterplot Matrix", 
                    h1("Facebook - Scatter Plot Matrix"),
-                   selectInput("group", "Color by", c("Type", "Category", "Weekday", "Paid")),
-                   pairsD3Output("distPlot", width = "900px",height="900px")
+                   selectInput("group", "Color by", c("Type", "Category", "Post_Weekday", "Paid")),
+                   pairsD3Output("scatterPlot", width = "900px",height="900px")
           ),
           tabPanel("Parallel Coordinates", 
                    h1("Facebook - Parallel Coordinates"),
-                   selectInput("groupPar", "Color by", c("Type", "Category", "Weekday", "Paid")),
+                   selectInput("groupPar", "Color by", c("Type", "Category", "Post_Weekday", "Paid")),
                    parcoordsOutput("parcoords", width = "900px", height = "900px" ))
         )
       )
     )
   )
   # Server logic
-  server <- function(input, output,session) {
+  server <- function(input, output) {
 
     output$heatmap <- renderD3heatmap({
-      fb_subset <- fb[(fb$Page.total.likes > input$likes[1]) & (fb$Page.total.likes < input$likes[2]), ]
-      heat_df <- aggregate(. ~ Month, data = fb[,c(input$SelecetedVars,'Month')], FUN = sum)
-      row.names(heat_df) <- c('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')
-      heat_df <-within(heat_df, rm(Month))
+      df <- aggregate(. ~ Post_Month, data = fb[,c(input$vars,'Post_Month')], FUN = sum)
+      row.names(df) <- c('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')
+      df <-within(df, rm(Post_Month))
       d3heatmap(
-        heat_df,
+        df,
         scale="column",
         dendrogram = "none",
         colors = "Blues",
@@ -62,15 +61,15 @@ names(fb) <- c("Total.likes","Type","Category","Month","Weekday","Hour","Paid","
       )
     })
     
-    output$distPlot <- renderPairsD3({
-      pairsD3(fb[,input$SelecetedVars],group=fb[[input$group]])
+    output$scatterPlot <- renderPairsD3({
+      pairsD3(fb[,input$vars],group=fb[[input$group]])
     })
     
     output$parcoords = renderParcoords({
       parcoords(
-        fb[,c(input$groupPar, input$SelecetedVars)]  # order columns so species first
-        , rownames=F
-        , brushMode="1d"
+        fb[,c(input$groupPar, input$vars)]
+        , rownames = FALSE
+        , brushMode = "1d"
         , color = list(
           colorScale = htmlwidgets::JS(sprintf(
             'd3.scale.ordinal().range(%s).domain(%s)'
